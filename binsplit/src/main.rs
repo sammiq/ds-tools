@@ -79,15 +79,12 @@ fn main() {
 }
 
 fn detect_file_suffix(file_data: &[u8]) -> &'static str {
-    if file_data.starts_with(b"MIG.") {
-        "gim"
-    } else if file_data.starts_with(b"MThd") {
-        "mid"
-    } else if file_data.starts_with(b"PPHD") {
-        "phd"
-    } else if file_data.starts_with(b"VAGp") {
-        "vag"
-    } else {
-        "bin"
+    match file_data.get(0..4) {
+        Some(b"MIG.") => "gim", //PSP Image
+        Some(b"MThd") => "mid", //MIDI Audio
+        Some(b"PPHD") => "phd", //PSP Audio
+        Some(b"PSMF") => "pmf", //PSP Movie
+        Some(b"VAGp") => "vag", //Playstation Audio
+        _ => "bin",
     }
 }
