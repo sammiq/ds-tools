@@ -345,38 +345,48 @@ fn process_image(filename: &str, args: &Args) -> Result<()> {
             let mut out = vec![0u8; iw * ih * 4];
             if order == gim::ImageOrder::PSPImage && !args.linear {
                 // read as 16 x 8 tiles and convert to linear output
-                let tw = if args.tx > 0 { args.tx } else { 16 };
+                let tw = if args.tx > 0 { args.tx } else { 32 };
                 let th = if args.ty > 0 { args.ty } else { 8 };
                 let tiles_x = iw / tw;
                 let tiles_y = ih / th;
 
-                //FIXME this is not correct
                 for ty in 0..tiles_y {
                     for tx in 0..tiles_x {
                         let tile_index = ty * tiles_x + tx;
                         let tile_offset = tile_index * tw * th;
 
                         for y in 0..th {
-                            for x in 0..(tw / 2) {
-                                let src = tile_offset + y * tw + x; // palette index
+                            for x in 0..tw {
+                                let pixel_index = tile_offset + y * tw + x;
+
+                                // For 4-bit: divide by 2 to get byte position
+                                let src = pixel_index / 2;
 
                                 // Convert tile coords -> image coords
                                 let px = tx * tw + x;
                                 let py = ty * th + y;
-                                let dst = (py * iw + px) * 8;
+                                let dst = (py * iw + px) * 4;
 
-                                let pal_index0 = (picture.image_data[src] & 0x0F) as usize;
-                                let pal_index1 = (picture.image_data[src] >> 4) as usize;
+                                if src >= picture.image_data.len() {
+                                    vprintln!(args.verbose, "row {}, col {}", y, x);
+                                    bail!("Error: source index {} out of bounds (data length {})", src, picture.image_data.len());
+                                }
 
-                                out[dst] = pal_data[pal_index0 + 0];
-                                out[dst + 1] = pal_data[pal_index0 + 1];
-                                out[dst + 2] = pal_data[pal_index0 + 2];
-                                out[dst + 3] = pal_data[pal_index0 + 3];
+                                // Extract palette index from appropriate nibble
+                                let palette_index = if pixel_index % 2 == 0 {
+                                    // Even pixel: low 4 bits
+                                    picture.image_data[src] & 0x0F
+                                } else {
+                                    // Odd pixel: high 4 bits
+                                    (picture.image_data[src] >> 4) & 0x0F
+                                };
 
-                                out[dst + 4] = pal_data[pal_index1 + 0];
-                                out[dst + 5] = pal_data[pal_index1 + 1];
-                                out[dst + 6] = pal_data[pal_index1 + 2];
-                                out[dst + 7] = pal_data[pal_index1 + 3];
+                                let pal_offset = (palette_index as usize) * 4;
+
+                                out[dst] = pal_data[pal_offset + 0];
+                                out[dst + 1] = pal_data[pal_offset + 1];
+                                out[dst + 2] = pal_data[pal_offset + 2];
+                                out[dst + 3] = pal_data[pal_offset + 3];
                             }
                         }
                     }

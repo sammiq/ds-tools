@@ -131,7 +131,7 @@ fn detect_file_suffix(file_data: &[u8]) -> &'static str {
         Some(b"MIG.") => "gim",  //PSP Image
         Some(b"MThd") => "mid",  //MIDI Audio
         Some(b"PPHD") => "phd",  //PSP Audio
-        Some(b"PSMF") => "psmf", //PSP Movie
+        Some(b"PSMF") => "pmf", //PSP Movie
         Some(b"VAGp") => "vag",  //Playstation Audio
         _ => "bin",
     }
