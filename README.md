@@ -7,3 +7,5 @@ Included utils:
 - binextract - takes a SMT:DS PSP .bin archive file and extracts all the items in the file to seperate files, trying to match headers for filetypes and renaming accordingly. By default checks for the last entry being the string 'PSPCHECK' as per the game logic as an validity check
 - binsplit - for SMT:DS PSP, some .bin files are of a slightly different format (the sdata/bgmall.bin, ecd/ecdall.bin and packchr/mmpall.bin files), and these contain multiple files as well. Some of the extracted files are themselves .bin archives that can be further split by the other tool.
 - imgsplit - split the PSXCD.IMG file in SMT:DS Soul Hackers on the PS1.
+
+I have made some changes to support some Persona 1 PSP files work with these tools.

@@ -254,7 +254,7 @@ fn process_image(filename: &str, args: &Args) -> Result<()> {
         if let Some(palette) = picture.palette_header
             && let Some(raw_pal_data) = picture.palette_data
         {
-            let pal_data = convert_palette_for_png(&palette, raw_pal_data)?;
+            let pal_data = convert_palette_for_png(palette, raw_pal_data)?;
 
             println!("Writing output file: {}", output_path.display());
             let mut ow = std::io::BufWriter::new(std::fs::File::create(&output_path).context("Failed to create output file")?);
@@ -332,7 +332,7 @@ fn process_image(filename: &str, args: &Args) -> Result<()> {
         if let Some(palette) = picture.palette_header
             && let Some(raw_pal_data) = picture.palette_data
         {
-            let pal_data = convert_palette_for_png(&palette, raw_pal_data)?;
+            let pal_data = convert_palette_for_png(palette, raw_pal_data)?;
 
             println!("Writing output file: {}", output_path.display());
             let mut ow = std::io::BufWriter::new(std::fs::File::create(&output_path).context("Failed to create output file")?);
@@ -434,29 +434,44 @@ fn convert_palette_for_png<'a>(palette_header: &gim::GimImageHeader, palette_dat
 
     match format {
         gim::ImageFormat::RGBA8888 => {
-            return Ok(Cow::Borrowed(palette_data));
+            Ok(Cow::Borrowed(palette_data))
+        }
+        gim::ImageFormat::RGBA4444 => {
+            if palette_data.len() % 2 != 0 {
+                bail!("RGBA4444 palette has an odd byte length: {}", palette_data.len());
+            }
+
+            let mut out = Vec::with_capacity(palette_data.len() * 2);
+            for bytes in palette_data.chunks_exact(2) {
+                let pix = u16::from_le_bytes([bytes[0], bytes[1]]);
+
+                let r = ((pix & 0xF) as u8) * 17;
+                let g = (((pix >> 4) & 0xF) as u8) * 17;
+                let b = (((pix >> 8) & 0xF) as u8) * 17;
+                let a = (((pix >> 12) & 0xF) as u8) * 17;
+
+                out.extend_from_slice(&[r, g, b, a]);
+            }
+
+            Ok(Cow::Owned(out))
         }
         gim::ImageFormat::RGBA5551 => {
-            let mut out = vec![0u8; 256 * 4];
+            if palette_data.len() % 2 != 0 {
+                bail!("RGBA5551 palette has an odd byte length: {}", palette_data.len());
+            }
 
-            for i in 0..256 {
-                let src_offset = i * 2;
-                let dst_offset = i * 4;
-                let pix_low = palette_data[src_offset];
-                let pix_high = palette_data[src_offset + 1];
-                let pix = ((pix_high as u16) << 8) | (pix_low as u16);
+            let mut out = Vec::with_capacity(palette_data.len() * 2);
+            for bytes in palette_data.chunks_exact(2) {
+                let pix = u16::from_le_bytes([bytes[0], bytes[1]]);
 
-                let b = (((pix >> 10) & 0x1F) << 3) as u8;
-                let g = (((pix >> 5) & 0x1F) << 3) as u8;
-                let r = ((pix & 0x1F) << 3) as u8;
+                let r = (((pix & 0x1F) as u8) << 3) | ((pix & 0x1F) as u8 >> 2);
+                let g = ((((pix >> 5) & 0x1F) as u8) << 3) | (((pix >> 5) & 0x1F) as u8 >> 2);
+                let b = ((((pix >> 10) & 0x1F) as u8) << 3) | (((pix >> 10) & 0x1F) as u8 >> 2);
                 let a = if (pix & 0x8000) != 0 { 255 } else { 0 };
 
-                out[dst_offset] = r;
-                out[dst_offset + 1] = g;
-                out[dst_offset + 2] = b;
-                out[dst_offset + 3] = a;
+                out.extend_from_slice(&[r, g, b, a]);
             }
-            return Ok(Cow::Owned(out));
+            Ok(Cow::Owned(out))
         }
         _ => {
             bail!("Error: GIM Palette format '{}' not supported for conversion.", format);
